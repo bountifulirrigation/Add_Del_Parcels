@@ -16,7 +16,9 @@ html, body {
   background:#f4f6f9;
 }
 
+/* Initially hide the form until login */
 #appPanel{
+  display: none;
   padding:25px;
   max-width:520px;
   margin:40px auto;
@@ -110,6 +112,13 @@ button:disabled{
 
 <body>
 
+<!-- Small JS redirect fix for GitHub Pages folder URL -->
+<script>
+  if (window.location.pathname.endsWith("/Add_Del_Parcels/")) {
+    window.location.replace(window.location.pathname + "index.html" + window.location.search);
+  }
+</script>
+
 <div id="appPanel">
   <h2>Delete / Inactivate Parcel</h2>
 
@@ -159,10 +168,23 @@ require([
   const oauthInfo = new OAuthInfo({
     appId: "5cZGuKwUnUDFpAJ7", // <-- paste your Client ID here
     popup: true,
-    portalUrl: "https://www.arcgis.com" // <-- or your company portal if hosted there
+    portalUrl: "https://www.arcgis.com" // or your company portal if hosted there
   });
 
   IdentityManager.registerOAuthInfos([oauthInfo]);
+
+  async function ensureLogin() {
+    try {
+      await IdentityManager.checkSignInStatus(layerUrl);
+    } catch {
+      await IdentityManager.getCredential(layerUrl);
+    }
+    // Show form after successful login
+    document.getElementById("appPanel").style.display = "block";
+  }
+
+  // Immediately ensure login on page load
+  ensureLogin();
 
   async function getToken(){
     try {
@@ -216,7 +238,6 @@ require([
         return;
       }
 
-      // Parcel is active and editable
       message.textContent = "Parcel found. Review futures and submit.";
       submitBtn.disabled = false;
 
