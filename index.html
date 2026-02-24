@@ -135,9 +135,10 @@ button:disabled{
 
 <script>
 require([
+  "esri/identity/OAuthInfo",
   "esri/identity/IdentityManager",
   "esri/request"
-], function(IdentityManager, esriRequest) {
+], function(OAuthInfo, IdentityManager, esriRequest) {
 
   const layerUrl = "https://services3.arcgis.com/qACnxJSsTspwubRv/arcgis/rest/services/service_f6d0b40f569c4851b2227f1f41e55aba/FeatureServer/0";
 
@@ -152,6 +153,30 @@ require([
 
   let currentFeature = null;
 
+  // ------------------------
+  // OAuth Setup
+  // ------------------------
+  const oauthInfo = new OAuthInfo({
+    appId: "5cZGuKwUnUDFpAJ7", // <-- paste your Client ID here
+    popup: true,
+    portalUrl: "https://www.arcgis.com"
+  });
+
+  IdentityManager.registerOAuthInfos([oauthInfo]);
+
+  async function getToken(){
+    try {
+      const credential = await IdentityManager.checkSignInStatus(layerUrl);
+      return credential.token;
+    } catch {
+      const credential = await IdentityManager.getCredential(layerUrl);
+      return credential.token;
+    }
+  }
+
+  // ------------------------
+  // Parcel Lookup
+  // ------------------------
   parcelInput.addEventListener("blur", lookupParcel);
 
   async function lookupParcel(){
@@ -163,7 +188,7 @@ require([
     confirmContainer.style.display = "none";
 
     try {
-      const response = await esriRequest(layerUrl + "/query",{
+      const response = await esriRequest(layerUrl + "/query", {
         query:{
           where:`TAX_SER_NO='${parcel}'`,
           outFields:"*",
@@ -174,8 +199,8 @@ require([
 
       if(response.data.features.length === 0){
         message.textContent = "Parcel not found — cannot delete.";
-        ownerField.value="";
-        futuresField.value="";
+        ownerField.value = "";
+        futuresField.value = "";
         return;
       }
 
@@ -201,17 +226,9 @@ require([
     }
   }
 
-  async function getToken(){
-    try {
-      const user = await IdentityManager.checkSignInStatus(layerUrl);
-      return user.token;
-    } catch {
-      const user = await IdentityManager.getCredential(layerUrl, { oAuthPopupConfirmation: false });
-      return user.token;
-    }
-  }
-
-  // Show inline confirmation only if parcel is editable
+  // ------------------------
+  // Inline confirmation
+  // ------------------------
   submitBtn.addEventListener("click", () => {
     if(currentFeature && currentFeature.Parcel_Status !== "Inactive"){
       confirmContainer.style.display = "block";
@@ -231,7 +248,7 @@ require([
     const activityCode = "DEL" + year;
 
     const update = {
-      attributes:{
+      attributes: {
         OBJECTID: currentFeature.OBJECTID,
         ACTIVITY: activityCode,
         Parcel_Status: "Inactive",
