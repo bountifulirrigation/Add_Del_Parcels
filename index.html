@@ -159,7 +159,9 @@ require([
   const oauthInfo = new OAuthInfo({
     appId: "5cZGuKwUnUDFpAJ7", // <-- paste your Client ID here
     popup: true,
-    portalUrl: https://www.arcgis.com/
+    portalUrl: "https://www.arcgis.com" // <-- or your company portal if hosted there
+  });
+
   IdentityManager.registerOAuthInfos([oauthInfo]);
 
   async function getToken(){
