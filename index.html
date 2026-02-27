@@ -12,7 +12,6 @@
     html, body {
       margin: 0;
       padding: 0;
-      height: 100%;
       font-family: Arial, sans-serif;
       background: #f5f5f5;
     }
@@ -22,36 +21,44 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      flex-direction: column;
-      background: #f5f5f5;
     }
 
     #appContainer {
       display: none;
-      padding: 30px;
       max-width: 600px;
-      margin: auto;
-      text-align: center;
+      margin: 50px auto;
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
 
     input {
       width: 100%;
-      padding: 14px;
-      font-size: 18px;
+      padding: 12px;
+      font-size: 16px;
       margin-top: 10px;
     }
 
     button {
-      padding: 14px;
-      font-size: 18px;
-      margin-top: 15px;
-      cursor: pointer;
       width: 100%;
+      padding: 12px;
+      margin-top: 15px;
+      font-size: 16px;
+      cursor: pointer;
     }
 
     #status {
       margin-top: 15px;
       font-weight: bold;
+    }
+
+    #parcelInfo {
+      margin-top: 15px;
+      background: #f0f0f0;
+      padding: 10px;
+      border-radius: 4px;
+      display: none;
     }
   </style>
 </head>
@@ -63,11 +70,15 @@
 </div>
 
 <div id="appContainer">
-  <h2>Add / Delete Parcels</h2>
+  <h2>Inactivate Parcel</h2>
 
   <input id="parcelInput" placeholder="Enter Parcel Number" />
-  <button id="submitParcel">Submit</button>
+  <input id="futuresInput" placeholder="Enter Future Parcel Numbers (optional)" />
 
+  <button id="lookupBtn">Lookup Parcel</button>
+  <button id="submitBtn" disabled>Submit Inactivation</button>
+
+  <div id="parcelInfo"></div>
   <div id="status"></div>
 </div>
 
@@ -78,6 +89,9 @@ require([
   "esri/request"
 ], function(OAuthInfo, esriId, esriRequest) {
 
+  const featureLayerUrl =
+    "https://services3.arcgis.com/qACnxJSsTspwubRv/arcgis/rest/services/service_f6d0b40f569c4851b2227f1f41e55aba/FeatureServer/0";
+
   const oauthInfo = new OAuthInfo({
     appId: "5cZGuKwUnUDFpAJ7",
     portalUrl: "https://bwsd.maps.arcgis.com",
@@ -87,7 +101,6 @@ require([
 
   esriId.registerOAuthInfos([oauthInfo]);
 
-  // 🔐 Force login FIRST
   esriId.checkSignInStatus(oauthInfo.portalUrl + "/sharing")
     .then(startApp)
     .catch(function() {
@@ -100,31 +113,106 @@ require([
     document.getElementById("appContainer").style.display = "block";
   }
 
-  document.getElementById("submitParcel").addEventListener("click", function() {
+  let currentObjectId = null;
+
+  document.getElementById("lookupBtn").addEventListener("click", function() {
 
     const parcel = document.getElementById("parcelInput").value.trim();
     const status = document.getElementById("status");
+    const info = document.getElementById("parcelInfo");
+    const submitBtn = document.getElementById("submitBtn");
+
+    submitBtn.disabled = true;
+    info.style.display = "none";
+    status.innerHTML = "";
 
     if (!parcel) {
       status.innerHTML = "Enter a parcel number.";
       return;
     }
 
-    status.innerHTML = "Submitting...";
-
-    esriRequest(
-      "https://services3.arcgis.com/qACnxJSsTspwubRv/arcgis/rest/services/service_f6d0b40f569c4851b2227f1f41e55aba/FeatureServer/0",
-      {
-        method: "post",
-        query: {
-          f: "json"
-        }
+    esriRequest(featureLayerUrl + "/query", {
+      method: "post",
+      query: {
+        f: "json",
+        where: "Parcel_Number = '" + parcel + "'",
+        outFields: "*",
+        returnGeometry: false
       }
-    ).then(function() {
-      status.innerHTML = "Success!";
-      document.getElementById("parcelInput").value = "";
+    }).then(function(response) {
+
+      if (response.data.features.length === 0) {
+        status.innerHTML = "Parcel not found.";
+        return;
+      }
+
+      const feature = response.data.features[0];
+      const attrs = feature.attributes;
+
+      currentObjectId = attrs.objectid;
+
+      if (attrs.Parcel_Status !== "Active") {
+        status.innerHTML = "Parcel already inactive.";
+        return;
+      }
+
+      info.innerHTML =
+        "<strong>Owner:</strong> " + (attrs.Owner_Name || "N/A") +
+        "<br><strong>Status:</strong> " + attrs.Parcel_Status;
+
+      info.style.display = "block";
+      submitBtn.disabled = false;
+
     }).catch(function(error) {
-      status.innerHTML = "Error submitting.";
+      status.innerHTML = "Error during lookup.";
+      console.error(error);
+    });
+
+  });
+
+  document.getElementById("submitBtn").addEventListener("click", function() {
+
+    if (!currentObjectId) return;
+
+    if (!confirm("Are you sure you want to inactivate this parcel?")) {
+      return;
+    }
+
+    const futuresValue = document.getElementById("futuresInput").value.trim();
+    const status = document.getElementById("status");
+
+    const year = new Date().getFullYear().toString().slice(-2);
+    const activityCode = "DEL" + year;
+
+    esriRequest(featureLayerUrl + "/applyEdits", {
+      method: "post",
+      query: {
+        f: "json",
+        updates: JSON.stringify([{
+          attributes: {
+            objectid: currentObjectId,
+            Parcel_Status: "Inactive",
+            ACTIVITY: activityCode,
+            FUTURES: futuresValue
+          }
+        }])
+      }
+    }).then(function(response) {
+
+      if (response.data.updateResults[0].success) {
+
+        status.innerHTML = "✅ Parcel Updated — Next Parcel";
+
+        setTimeout(function() {
+          location.reload();
+        }, 1500);
+
+      } else {
+        status.innerHTML = "Update failed.";
+      }
+
+    }).catch(function(error) {
+      status.innerHTML = "Error during update.";
       console.error(error);
     });
 
