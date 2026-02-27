@@ -28,24 +28,31 @@
       max-width: 600px;
       margin: 50px auto;
       background: white;
-      padding: 30px;
+      padding: 30px 40px;
       border-radius: 8px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      text-align: center;
     }
 
     input {
-      width: 100%;
+      width: 90%;
       padding: 12px;
       font-size: 16px;
       margin-top: 10px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
     }
 
     button {
-      width: 100%;
+      width: 90%;
       padding: 12px;
       margin-top: 15px;
       font-size: 16px;
       cursor: pointer;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
     }
 
     #status {
@@ -59,6 +66,7 @@
       padding: 10px;
       border-radius: 4px;
       display: none;
+      text-align: left;
     }
 
     #futuresInput {
@@ -114,7 +122,7 @@
   <input id="parcelInput" placeholder="Enter Parcel Number" />
   <input id="futuresInput" placeholder="Enter Future Parcel Numbers" />
 
-  <button id="submitBtn" style="display:none;">Submit</button>
+  <button id="submitBtn" style="display:none;">Submit Inactivation</button>
 
   <div id="confirmContainer">
     <span>Are you sure you want to inactivate this parcel?</span><br/>
@@ -155,9 +163,11 @@ require([
   function startApp() {
     document.getElementById("loginScreen").style.display = "none";
     document.getElementById("appContainer").style.display = "block";
+    parcelInput.focus();
   }
 
   let currentObjectId = null;
+  let existingFutures = "";
 
   const parcelInput = document.getElementById("parcelInput");
   const futuresInput = document.getElementById("futuresInput");
@@ -168,9 +178,6 @@ require([
   const confirmYes = document.querySelector(".confirmYes");
   const confirmNo = document.querySelector(".confirmNo");
 
-  // Lookup when leaving parcel field
-  parcelInput.addEventListener("blur", lookupParcel);
-
   function lookupParcel() {
     const parcel = parcelInput.value.trim();
 
@@ -180,6 +187,7 @@ require([
     confirmContainer.style.display = "none";
     status.innerHTML = "";
     currentObjectId = null;
+    existingFutures = "";
 
     if (!parcel) return;
 
@@ -202,6 +210,7 @@ require([
 
       const attrs = response.data.features[0].attributes;
       currentObjectId = attrs.objectid;
+      existingFutures = attrs.FUTURES || "";
 
       if (attrs.Parcel_Status !== "Active") {
         status.innerHTML = "Parcel already inactive.";
@@ -217,11 +226,19 @@ require([
       submitBtn.style.display = "block";
       status.innerHTML = "Parcel ready for inactivation.";
 
+      futuresInput.focus();
     }).catch(function(error) {
       status.innerHTML = "Error during lookup.";
       console.error(error);
     });
   }
+
+  parcelInput.addEventListener("blur", lookupParcel);
+  parcelInput.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") {
+      lookupParcel();
+    }
+  });
 
   submitBtn.addEventListener("click", function() {
     if (!currentObjectId) return;
@@ -235,7 +252,11 @@ require([
   confirmYes.addEventListener("click", function() {
     confirmContainer.style.display = "none";
 
-    const futuresValue = futuresInput.value.trim();
+    let futuresValue = futuresInput.value.trim();
+    if (!futuresValue) {
+      futuresValue = existingFutures; // preserve original if left blank
+    }
+
     const year = new Date().getFullYear().toString().slice(-2);
     const activityCode = "DEL" + year;
 
@@ -255,8 +276,14 @@ require([
     }).then(function(response) {
       if (response.data.updateResults[0].success) {
         status.innerHTML = "✅ Parcel Updated — Next Parcel";
-        // Reset form quickly for next parcel
-        setTimeout(() => location.reload(), 1500);
+        parcelInput.value = "";
+        futuresInput.value = "";
+        info.style.display = "none";
+        submitBtn.style.display = "none";
+        futuresInput.style.display = "none";
+        currentObjectId = null;
+        existingFutures = "";
+        parcelInput.focus();
       } else {
         status.innerHTML = "Update failed.";
       }
