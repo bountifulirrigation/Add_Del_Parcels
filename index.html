@@ -60,6 +60,10 @@
       border-radius: 4px;
       display: none;
     }
+
+    #futuresInput {
+      display: none;
+    }
   </style>
 </head>
 
@@ -72,10 +76,9 @@
 <div id="appContainer">
   <h2>Inactivate Parcel</h2>
 
-  <input id="parcelInput" placeholder="Enter Parcel Number" />
+  <input id="parcelInput" placeholder="Enter Parcel Number and press TAB" />
   <input id="futuresInput" placeholder="Enter Future Parcel Numbers (optional)" />
 
-  <button id="lookupBtn">Lookup Parcel</button>
   <button id="submitBtn" disabled>Submit Inactivation</button>
 
   <div id="parcelInfo"></div>
@@ -115,21 +118,28 @@ require([
 
   let currentObjectId = null;
 
-  document.getElementById("lookupBtn").addEventListener("click", function() {
+  const parcelInput = document.getElementById("parcelInput");
+  const futuresInput = document.getElementById("futuresInput");
+  const submitBtn = document.getElementById("submitBtn");
+  const info = document.getElementById("parcelInfo");
+  const status = document.getElementById("status");
 
-    const parcel = document.getElementById("parcelInput").value.trim();
-    const status = document.getElementById("status");
-    const info = document.getElementById("parcelInfo");
-    const submitBtn = document.getElementById("submitBtn");
+  // 🔍 Lookup when leaving field (TAB or click away)
+  parcelInput.addEventListener("blur", lookupParcel);
+
+  function lookupParcel() {
+
+    const parcel = parcelInput.value.trim();
 
     submitBtn.disabled = true;
+    futuresInput.style.display = "none";
     info.style.display = "none";
     status.innerHTML = "";
+    currentObjectId = null;
 
-    if (!parcel) {
-      status.innerHTML = "Enter a parcel number.";
-      return;
-    }
+    if (!parcel) return;
+
+    status.innerHTML = "Searching...";
 
     esriRequest(featureLayerUrl + "/query", {
       method: "post",
@@ -146,9 +156,7 @@ require([
         return;
       }
 
-      const feature = response.data.features[0];
-      const attrs = feature.attributes;
-
+      const attrs = response.data.features[0].attributes;
       currentObjectId = attrs.objectid;
 
       if (attrs.Parcel_Status !== "Active") {
@@ -161,25 +169,23 @@ require([
         "<br><strong>Status:</strong> " + attrs.Parcel_Status;
 
       info.style.display = "block";
+      futuresInput.style.display = "block";
       submitBtn.disabled = false;
+      status.innerHTML = "Parcel ready for inactivation.";
 
     }).catch(function(error) {
       status.innerHTML = "Error during lookup.";
       console.error(error);
     });
+  }
 
-  });
-
-  document.getElementById("submitBtn").addEventListener("click", function() {
+  submitBtn.addEventListener("click", function() {
 
     if (!currentObjectId) return;
 
-    if (!confirm("Are you sure you want to inactivate this parcel?")) {
-      return;
-    }
+    if (!confirm("Are you sure you want to inactivate this parcel?")) return;
 
-    const futuresValue = document.getElementById("futuresInput").value.trim();
-    const status = document.getElementById("status");
+    const futuresValue = futuresInput.value.trim();
 
     const year = new Date().getFullYear().toString().slice(-2);
     const activityCode = "DEL" + year;
@@ -200,13 +206,9 @@ require([
     }).then(function(response) {
 
       if (response.data.updateResults[0].success) {
-
         status.innerHTML = "✅ Parcel Updated — Next Parcel";
 
-        setTimeout(function() {
-          location.reload();
-        }, 1500);
-
+        setTimeout(() => location.reload(), 1500);
       } else {
         status.innerHTML = "Update failed.";
       }
