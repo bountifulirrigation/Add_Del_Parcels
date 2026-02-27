@@ -63,6 +63,41 @@
 
     #futuresInput {
       display: none;
+      margin-top: 10px;
+    }
+
+    /* Inline confirmation */
+    #confirmContainer {
+      display: none;
+      margin-top: 15px;
+      text-align: center;
+    }
+
+    .confirmBtn {
+      padding: 8px 16px;
+      margin: 0 8px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .confirmYes {
+      background-color: #28a745;
+      color: white;
+    }
+
+    .confirmYes:hover {
+      background-color: #1e7e34;
+    }
+
+    .confirmNo {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    .confirmNo:hover {
+      background-color: #a71d2a;
     }
   </style>
 </head>
@@ -79,7 +114,13 @@
   <input id="parcelInput" placeholder="Enter Parcel Number" />
   <input id="futuresInput" placeholder="Enter Future Parcel Numbers" />
 
-  <button id="submitBtn" disabled>Submit Inactivation</button>
+  <button id="submitBtn" style="display:none;">Submit</button>
+
+  <div id="confirmContainer">
+    <span>Are you sure you want to inactivate this parcel?</span><br/>
+    <button class="confirmBtn confirmYes">Yes</button>
+    <button class="confirmBtn confirmNo">No</button>
+  </div>
 
   <div id="parcelInfo"></div>
   <div id="status"></div>
@@ -123,17 +164,20 @@ require([
   const submitBtn = document.getElementById("submitBtn");
   const info = document.getElementById("parcelInfo");
   const status = document.getElementById("status");
+  const confirmContainer = document.getElementById("confirmContainer");
+  const confirmYes = document.querySelector(".confirmYes");
+  const confirmNo = document.querySelector(".confirmNo");
 
-  // 🔍 Lookup when leaving field (TAB or click away)
+  // Lookup when leaving parcel field
   parcelInput.addEventListener("blur", lookupParcel);
 
   function lookupParcel() {
-
     const parcel = parcelInput.value.trim();
 
-    submitBtn.disabled = true;
+    submitBtn.style.display = "none";
     futuresInput.style.display = "none";
     info.style.display = "none";
+    confirmContainer.style.display = "none";
     status.innerHTML = "";
     currentObjectId = null;
 
@@ -170,7 +214,7 @@ require([
 
       info.style.display = "block";
       futuresInput.style.display = "block";
-      submitBtn.disabled = false;
+      submitBtn.style.display = "block";
       status.innerHTML = "Parcel ready for inactivation.";
 
     }).catch(function(error) {
@@ -180,13 +224,18 @@ require([
   }
 
   submitBtn.addEventListener("click", function() {
-
     if (!currentObjectId) return;
+    confirmContainer.style.display = "block";
+  });
 
-    if (!confirm("Are you sure you want to inactivate this parcel?")) return;
+  confirmNo.addEventListener("click", () => {
+    confirmContainer.style.display = "none";
+  });
+
+  confirmYes.addEventListener("click", function() {
+    confirmContainer.style.display = "none";
 
     const futuresValue = futuresInput.value.trim();
-
     const year = new Date().getFullYear().toString().slice(-2);
     const activityCode = "DEL" + year;
 
@@ -204,20 +253,17 @@ require([
         }])
       }
     }).then(function(response) {
-
       if (response.data.updateResults[0].success) {
         status.innerHTML = "✅ Parcel Updated — Next Parcel";
-
+        // Reset form quickly for next parcel
         setTimeout(() => location.reload(), 1500);
       } else {
         status.innerHTML = "Update failed.";
       }
-
     }).catch(function(error) {
       status.innerHTML = "Error during update.";
       console.error(error);
     });
-
   });
 
 });
