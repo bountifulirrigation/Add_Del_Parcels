@@ -1,138 +1,74 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Parcel Management</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Add / Delete Parcels</title>
 
-<link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css" />
-<script src="https://js.arcgis.com/4.29/"></script>
+  <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css" />
+  <script src="https://js.arcgis.com/4.29/"></script>
 
-<style>
-html, body {
-  margin:0;
-  padding:0;
-  font-family: Arial, sans-serif;
-  background:#f4f6f9;
-}
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+    }
 
-/* Initially hide the form until login */
-#appPanel{
-  display: none;
-  padding:25px;
-  max-width:520px;
-  margin:40px auto;
-  background:white;
-  border-radius:12px;
-  box-shadow:0 4px 18px rgba(0,0,0,0.15);
-}
+    #loginScreen {
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      background: #f5f5f5;
+    }
 
-label{
-  font-weight:bold;
-  display:block;
-  margin-top:15px;
-}
+    #appContainer {
+      display: none;
+      padding: 30px;
+      max-width: 600px;
+      margin: auto;
+      text-align: center;
+    }
 
-input{
-  width:100%;
-  padding:10px;
-  margin-top:6px;
-  border:1px solid #ccc;
-  border-radius:6px;
-  font-size:15px;
-}
+    input {
+      width: 100%;
+      padding: 14px;
+      font-size: 18px;
+      margin-top: 10px;
+    }
 
-button{
-  margin-top:20px;
-  padding:12px;
-  width:100%;
-  border:none;
-  border-radius:8px;
-  background:#2c7be5;
-  color:white;
-  font-size:16px;
-  cursor:pointer;
-}
+    button {
+      padding: 14px;
+      font-size: 18px;
+      margin-top: 15px;
+      cursor: pointer;
+      width: 100%;
+    }
 
-button:hover{
-  background:#1a5fc4;
-}
-
-button:disabled{
-  background:#aaa;
-  cursor: not-allowed;
-}
-
-#message{
-  margin-top:15px;
-  font-weight:bold;
-}
-
-/* Confirmation buttons */
-#confirmContainer {
-  display: none;
-  margin-top: 15px;
-  text-align: center;
-}
-
-.confirmBtn {
-  padding: 8px 16px;
-  margin: 0 8px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.confirmYes {
-  background-color: #28a745;
-  color: white;
-}
-
-.confirmYes:hover {
-  background-color: #1e7e34;
-}
-
-.confirmNo {
-  background-color: #dc3545;
-  color: white;
-}
-
-.confirmNo:hover {
-  background-color: #a71d2a;
-}
-
-/* lighten login overlay */
-.esri-overlay-surface,
-.esri-view-surface{
-  background-color: rgba(0,0,0,0.12) !important;
-}
-</style>
+    #status {
+      margin-top: 15px;
+      font-weight: bold;
+    }
+  </style>
 </head>
 
 <body>
 
-<div id="appPanel">
-  <h2>Delete / Inactivate Parcel</h2>
+<div id="loginScreen">
+  <h2>Loading secure app...</h2>
+</div>
 
-  <label>Parcel Number</label>
-  <input id="parcelInput" placeholder="Enter parcel and press TAB" />
+<div id="appContainer">
+  <h2>Add / Delete Parcels</h2>
 
-  <label>Owner</label>
-  <input id="ownerField" disabled />
+  <input id="parcelInput" placeholder="Enter Parcel Number" />
+  <button id="submitParcel">Submit</button>
 
-  <label>Futures (child parcels)</label>
-  <input id="futuresField" placeholder="Add or edit futures" />
-
-  <button id="submitBtn" disabled>Submit Parcel Update</button>
-
-  <div id="confirmContainer">
-    <span>Are you sure?</span>
-    <button class="confirmBtn confirmYes">Yes</button>
-    <button class="confirmBtn confirmNo">No</button>
-  </div>
-
-  <div id="message"></div>
+  <div id="status"></div>
 </div>
 
 <script>
@@ -140,167 +76,62 @@ require([
   "esri/identity/OAuthInfo",
   "esri/identity/IdentityManager",
   "esri/request"
-], function(OAuthInfo, IdentityManager, esriRequest) {
+], function(OAuthInfo, esriId, esriRequest) {
 
-  const layerUrl = "https://services3.arcgis.com/qACnxJSsTspwubRv/arcgis/rest/services/service_f6d0b40f569c4851b2227f1f41e55aba/FeatureServer/0";
-
-  const parcelInput = document.getElementById("parcelInput");
-  const ownerField = document.getElementById("ownerField");
-  const futuresField = document.getElementById("futuresField");
-  const message = document.getElementById("message");
-  const submitBtn = document.getElementById("submitBtn");
-  const confirmContainer = document.getElementById("confirmContainer");
-  const confirmYes = document.querySelector(".confirmYes");
-  const confirmNo = document.querySelector(".confirmNo");
-
-  let currentFeature = null;
-
-  // ------------------------
-  // OAuth Setup
-  // ------------------------
   const oauthInfo = new OAuthInfo({
-    appId: "5cZGuKwUnUDFpAJ7", // <-- paste your Client ID here
-    popup: true,
-    portalUrl: "https://www.arcgis.com" // or your company portal if hosted there
+    appId: "5cZGuKwUnUDFpAJ7",
+    portalUrl: "https://bwsd.maps.arcgis.com",
+    popup: false,
+    redirectUri: window.location.origin + window.location.pathname
   });
 
-  IdentityManager.registerOAuthInfos([oauthInfo]);
+  esriId.registerOAuthInfos([oauthInfo]);
 
-  async function ensureLogin() {
-    try {
-      await IdentityManager.checkSignInStatus(layerUrl);
-    } catch {
-      await IdentityManager.getCredential(layerUrl);
-    }
-    // Show form after successful login
-    document.getElementById("appPanel").style.display = "block";
+  // 🔐 Force login FIRST
+  esriId.checkSignInStatus(oauthInfo.portalUrl + "/sharing")
+    .then(startApp)
+    .catch(function() {
+      esriId.getCredential(oauthInfo.portalUrl + "/sharing")
+        .then(startApp);
+    });
+
+  function startApp() {
+    document.getElementById("loginScreen").style.display = "none";
+    document.getElementById("appContainer").style.display = "block";
   }
 
-  // Immediately ensure login on page load
-  ensureLogin();
+  document.getElementById("submitParcel").addEventListener("click", function() {
 
-  async function getToken(){
-    try {
-      const credential = await IdentityManager.checkSignInStatus(layerUrl);
-      return credential.token;
-    } catch {
-      const credential = await IdentityManager.getCredential(layerUrl);
-      return credential.token;
+    const parcel = document.getElementById("parcelInput").value.trim();
+    const status = document.getElementById("status");
+
+    if (!parcel) {
+      status.innerHTML = "Enter a parcel number.";
+      return;
     }
-  }
 
-  // ------------------------
-  // Parcel Lookup
-  // ------------------------
-  parcelInput.addEventListener("blur", lookupParcel);
+    status.innerHTML = "Submitting...";
 
-  async function lookupParcel(){
-    const parcel = parcelInput.value.trim();
-    if(!parcel) return;
-
-    message.textContent = "Searching...";
-    submitBtn.disabled = true;
-    confirmContainer.style.display = "none";
-
-    try {
-      const response = await esriRequest(layerUrl + "/query", {
-        query:{
-          where:`TAX_SER_NO='${parcel}'`,
-          outFields:"*",
-          f:"json"
-        },
-        responseType:"json"
-      });
-
-      if(response.data.features.length === 0){
-        message.textContent = "Parcel not found — cannot delete.";
-        ownerField.value = "";
-        futuresField.value = "";
-        return;
-      }
-
-      const attrs = response.data.features[0].attributes;
-      currentFeature = attrs;
-
-      ownerField.value = attrs.Owner_Name || "";
-      futuresField.value = attrs.FUTURES || "";
-
-      if(attrs.Parcel_Status === "Inactive"){
-        message.textContent = "Parcel Found, Already Inactive";
-        submitBtn.disabled = true;
-        return;
-      }
-
-      message.textContent = "Parcel found. Review futures and submit.";
-      submitBtn.disabled = false;
-
-    } catch(err){
-      console.error(err);
-      message.textContent = "Login required. Please sign in.";
-    }
-  }
-
-  // ------------------------
-  // Inline confirmation
-  // ------------------------
-  submitBtn.addEventListener("click", () => {
-    if(currentFeature && currentFeature.Parcel_Status !== "Inactive"){
-      confirmContainer.style.display = "block";
-    }
-  });
-
-  confirmNo.addEventListener("click", () => {
-    confirmContainer.style.display = "none";
-  });
-
-  confirmYes.addEventListener("click", async () => {
-    confirmContainer.style.display = "none";
-
-    if(!currentFeature) return;
-
-    const year = new Date().getFullYear().toString().slice(-2);
-    const activityCode = "DEL" + year;
-
-    const update = {
-      attributes: {
-        OBJECTID: currentFeature.OBJECTID,
-        ACTIVITY: activityCode,
-        Parcel_Status: "Inactive",
-        FUTURES: futuresField.value
-      }
-    };
-
-    try {
-      const token = await getToken();
-
-      const response = await esriRequest(layerUrl + "/applyEdits", {
+    esriRequest(
+      "https://services3.arcgis.com/qACnxJSsTspwubRv/arcgis/rest/services/service_f6d0b40f569c4851b2227f1f41e55aba/FeatureServer/0",
+      {
         method: "post",
-        body: {
-          f: "json",
-          updates: JSON.stringify([update]),
-          token: token
-        },
-        responseType: "json"
-      });
-
-      console.log(response.data);
-
-      if(response.data.updateResults && response.data.updateResults[0].success){
-        message.textContent = "Parcel successfully updated.";
-        submitBtn.disabled = true;
-      } else {
-        message.textContent = "Update failed.";
+        query: {
+          f: "json"
+        }
       }
+    ).then(function() {
+      status.innerHTML = "Success!";
+      document.getElementById("parcelInput").value = "";
+    }).catch(function(error) {
+      status.innerHTML = "Error submitting.";
+      console.error(error);
+    });
 
-    } catch(err){
-      console.error(err);
-      message.textContent = "Login required to apply edits.";
-    }
   });
 
 });
 </script>
 
 </body>
-
 </html>
