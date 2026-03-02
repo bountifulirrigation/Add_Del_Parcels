@@ -191,8 +191,9 @@ require([
   const oauthInfo = new OAuthInfo({
     appId: "5cZGuKwUnUDFpAJ7",
     portalUrl: "https://bwsd.maps.arcgis.com",
-    popup: false,
-    redirectUri: window.location.origin + window.location.pathname
+    popup: true,
+    popupCallbackUrl: "https://bountifulirrigation.github.io/Deletions/oauth-callback.html",
+    redirectUri: "https://bountifulirrigation.github.io/Deletions/"
   });
 
   esriId.registerOAuthInfos([oauthInfo]);
